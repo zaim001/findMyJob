@@ -40,7 +40,11 @@ Make sure you have the following installed:
     ```sh
     pip install -r requirements.txt
     ```
-
+5. (optional) if you have `distutils` issues.
+   
+    ```sh
+   pip install setuptools
+    ```
 ## LinkedIn Job Scraper
 
 The LinkedIn job scraper script (`linkedin-jobs.py`) collects job data from LinkedIn.
