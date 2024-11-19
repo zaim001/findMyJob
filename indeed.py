@@ -20,6 +20,7 @@ wait = WebDriverWait(driver, 5)
 
 job = input("Enter Job Title : ")
 location = input("Enter your Location : ")
+n_page = int(input("Enter number of pages to scrap : "))
 
 search_job = wait.until(
     EC.presence_of_element_located((By.XPATH, "//input[@id='text-input-what']"))
@@ -35,46 +36,58 @@ time.sleep(3)
 
 df = pd.DataFrame(columns=['Job Title', 'Company', 'Date', 'Location', 'Job Type', 'Link'])
 
-while True:
-    boxes = driver.find_elements(By.CSS_SELECTOR, "div.job_seen_beacon")
-    for b in boxes:
-        link = b.find_element(By.CSS_SELECTOR, "a.jcs-JobTitle").get_attribute('href')
-        job_title = b.find_element(By.CSS_SELECTOR, "span[title]").text
-        try:
-            company = b.find_element(By.CSS_SELECTOR, "span[data-testid='company-name']").text
-        except NoSuchElementException:
-            company = "_"
-        date_posted = b.find_element(By.CSS_SELECTOR, "span[data-testid='myJobsStateDate']").text
-        date_posted = date_posted.replace("Posted", "").strip()
-        date_posted = date_posted.replace("Employer", "").strip()
-        job_location = b.find_element(By.CSS_SELECTOR, "div[data-testid='text-location']").text
-        try:
-            job_type = b.find_element(By.CSS_SELECTOR, "div[data-testid='attribute_snippet_testid']").text
-        except NoSuchElementException:
-            job_type = "_"
-
-        data = pd.DataFrame({'Job Title': [job_title], 'Company': [company],'Date': [date_posted], 'Location':[job_location], 'Job Type': [job_type], 'Link': [link]})
-        df = pd.concat([df, data], ignore_index=True)
+for page in range(n_page):
+    print(f"Scraping page {page + 1}...")
     try:
-        next_page = driver.find_element(By.CSS_SELECTOR, "a[aria-label='Next Page']").get_attribute('href')
-        driver.get(next_page)
+        boxes = driver.find_elements(By.CSS_SELECTOR, "div.job_seen_beacon")
+        for b in boxes:
+            link = b.find_element(By.CSS_SELECTOR, "a.jcs-JobTitle").get_attribute('href')
+            job_title = b.find_element(By.CSS_SELECTOR, "span[title]").text
+            try:
+                company = b.find_element(By.CSS_SELECTOR, "span[data-testid='company-name']").text
+            except NoSuchElementException:
+                company = "_"
+            try:
+                date_posted = b.find_element(By.CSS_SELECTOR, "span[data-testid='myJobsStateDate']").text
+                date_posted = date_posted.replace("Posted", "").strip()
+                date_posted = date_posted.replace("Employer", "").strip()
+            except NoSuchElementException:
+                date_posted = "_"
+            job_location = b.find_element(By.CSS_SELECTOR, "div[data-testid='text-location']").text
+            try:
+                job_type = b.find_element(By.CSS_SELECTOR, "div[data-testid='attribute_snippet_testid']").text
+            except NoSuchElementException:
+                job_type = "_"
+
+            data = pd.DataFrame({'Job Title': [job_title], 'Company': [company],
+                                 'Date': [date_posted], 'Location': [job_location],
+                                 'Job Type': [job_type], 'Link': [link]})
+            df = pd.concat([df, data], ignore_index=True)
+
         try:
-            dialog = WebDriverWait(driver, 5).until(
+            next_page = driver.find_element(By.CSS_SELECTOR, "a[aria-label='Next Page']").get_attribute('href')
+            driver.get(next_page)
+            try:
+                dialog = WebDriverWait(driver, 5).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "div#mosaic-desktopserpjapopup div button"))
                 )
-            dialog.click()
-        except TimeoutException:
-            pass
-        time.sleep(2)
-    except NoSuchElementException:
+                dialog.click()
+            except TimeoutException:
+                pass  # No dialog appeared
+            time.sleep(2)
+        except NoSuchElementException:
+            print("No more pages found.")
+            break
+
+    except Exception as e:
+        print(f"Error on page {page + 1}: {e}")
         break
 
 if df.empty:
-    print(f"No Data Found for {job} in {location}")
+    print(f"No data found for {job} in {location}.")
 else:
     print(tabulate(df, headers='keys', tablefmt='pretty'))
     df.to_csv('indeed.csv', index=False)
     df.to_excel('indeed.xlsx', index=False)
-
 
 driver.quit()
